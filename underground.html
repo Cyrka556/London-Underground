@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0E1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Mind the App</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='none' stroke='%23E32017' stroke-width='10'/%3E%3Crect x='6' y='26' width='52' height='12' rx='2' fill='%231E3FD8'/%3E%3C/svg%3E">
+<style>
+:root{
+  --tunnel:#0E1220;
+  --platform:#161C2E;
+  --platform-2:#1E2540;
+  --whitewash:#F0EFE9;
+  --hush:#9298AC;
+  --cab:#2447E6;
+  --signal:#FFD300;
+  --danger:#E32017;
+  --ok:#00A166;
+  --hairline:#2A3150;
+  --radius:14px;
+  --sans:'Gill Sans','Gill Sans MT','Trebuchet MS',system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{
+  background:var(--tunnel);color:var(--whitewash);
+  font-family:var(--sans);font-size:15px;
+  display:flex;flex-direction:column;
+}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input{font-family:inherit;color:inherit}
+
+/* ---------- top bar ---------- */
+header{
+  flex:none;display:flex;align-items:center;gap:12px;
+  padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  background:linear-gradient(180deg,rgba(14,18,32,.96),rgba(14,18,32,.82));
+  border-bottom:1px solid var(--hairline);
+  z-index:30;position:relative;
+}
+.wordmark{display:flex;align-items:center;gap:10px;user-select:none}
+.wordmark svg{display:block}
+.wordmark h1{font-size:17px;font-weight:600;letter-spacing:.06em}
+.wordmark small{display:block;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--hush)}
+#livePill{
+  margin-left:auto;display:flex;align-items:center;gap:7px;
+  font-size:11.5px;letter-spacing:.05em;color:var(--hush);
+  padding:6px 11px;border:1px solid var(--hairline);border-radius:999px;
+  background:var(--platform);
+}
+#livePill .dot{width:7px;height:7px;border-radius:50%;background:var(--hush)}
+#livePill.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+#livePill.on{color:var(--whitewash)}
+#livePill.warn .dot{background:var(--signal);box-shadow:0 0 8px var(--signal)}
+
+/* ---------- layout ---------- */
+main{flex:1;display:flex;min-height:0;position:relative}
+#mapWrap{flex:1;position:relative;min-width:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+canvas.dragging{cursor:grabbing}
+#zoomCtl{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;border:1px solid var(--hairline);border-radius:10px;overflow:hidden;background:rgba(22,28,46,.9);backdrop-filter:blur(6px)}
+#zoomCtl button{width:38px;height:38px;font-size:19px;line-height:1;color:var(--whitewash)}
+#zoomCtl button:first-child{border-bottom:1px solid var(--hairline)}
+#mapHint{
+  position:absolute;left:50%;top:14px;transform:translateX(-50%);
+  font-size:12px;color:var(--hush);letter-spacing:.04em;
+  background:rgba(14,18,32,.85);padding:6px 14px;border-radius:999px;border:1px solid var(--hairline);
+  pointer-events:none;transition:opacity .5s;white-space:nowrap;
+}
+
+/* ---------- panel / bottom sheet ---------- */
+#panel{
+  width:390px;flex:none;display:flex;flex-direction:column;min-height:0;
+  background:var(--platform);border-left:1px solid var(--hairline);z-index:20;
+}
+#sheetHandle{display:none}
+#panelScroll{flex:1;overflow-y:auto;padding:16px 16px calc(env(safe-area-inset-bottom) + 20px);scrollbar-width:thin}
+
+.section-label{
+  font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--hush);
+  margin:20px 0 9px;display:flex;align-items:center;gap:8px;
+}
+.section-label::after{content:'';flex:1;height:1px;background:var(--hairline)}
+.section-label:first-child{margin-top:2px}
+
+/* search */
+.stopField{position:relative;margin-bottom:8px}
+.stopField input{
+  width:100%;padding:12px 14px 12px 40px;font-size:15px;
+  background:var(--platform-2);border:1px solid var(--hairline);border-radius:var(--radius);
+  outline:none;
+}
+.stopField input:focus{border-color:var(--cab)}
+.stopField input::placeholder{color:var(--hush)}
+.stopField .pin{
+  position:absolute;left:13px;top:50%;transform:translateY(-50%);
+  width:16px;height:16px;border-radius:50%;border:4px solid var(--cab);background:var(--tunnel);
+}
+.stopField.dest .pin{border-color:var(--danger)}
+.suggest{
+  position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;
+  background:var(--platform-2);border:1px solid var(--hairline);border-radius:12px;
+  max-height:230px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.5);display:none;
+}
+.suggest.open{display:block}
+.suggest button{
+  display:flex;width:100%;align-items:center;gap:9px;text-align:left;
+  padding:10px 13px;font-size:14px;border-bottom:1px solid rgba(42,49,80,.5);
+}
+.suggest button:last-child{border-bottom:none}
+.suggest button:hover,.suggest button.active{background:rgba(36,71,230,.18)}
+.suggest .zone{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--hush)}
+.lineDots{display:flex;gap:3px;flex:none}
+.lineDots i{width:7px;height:7px;border-radius:50%;display:block}
+#swapRow{display:flex;justify-content:center;margin:-2px 0 6px}
+#swapBtn{
+  display:flex;align-items:center;gap:6px;font-size:12px;color:var(--hush);
+  padding:5px 12px;border-radius:999px;border:1px solid var(--hairline);
+}
+#swapBtn:hover{color:var(--whitewash);border-color:var(--cab)}
+#avoidRow{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--hush);margin-top:4px}
+#avoidRow input{accent-color:var(--cab);width:15px;height:15px}
+
+/* route diagram — the strip map */
+#routeCard{margin-top:6px}
+.summary{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding:13px 15px;background:var(--platform-2);
+  border:1px solid var(--hairline);border-radius:var(--radius);margin-bottom:14px;
+}
+.summary .big{font-size:29px;font-weight:600;font-variant-numeric:tabular-nums}
+.summary .big small{font-size:14px;color:var(--hush);font-weight:400;margin-left:2px}
+.summary .meta{font-size:12.5px;color:var(--hush)}
+.strip{position:relative;padding-left:34px}
+.leg{position:relative;padding-bottom:4px}
+.leg .spine{
+  position:absolute;left:-27px;top:10px;bottom:-10px;width:8px;border-radius:4px;
+}
+.leg:last-child .spine{bottom:14px}
+.node{position:relative;padding:2px 0 2px 0}
+.node .tick{
+  position:absolute;left:-31px;top:50%;transform:translateY(-50%);
+  width:16px;height:16px;border-radius:50%;
+  background:var(--whitewash);border:4px solid var(--tunnel);
+}
+.node.mid .tick{width:10px;height:10px;left:-28px;border-width:0;background:rgba(240,239,233,.85)}
+.node .nm{font-size:14.5px}
+.node.end .nm{font-weight:600;font-size:15.5px}
+.node .sub{font-size:11.5px;color:var(--hush);margin-top:1px}
+.midFold{
+  font-size:11.5px;color:var(--hush);padding:3px 0 3px 0;cursor:pointer;user-select:none;
+}
+.midFold:hover{color:var(--whitewash)}
+.legHead{
+  display:flex;align-items:center;gap:8px;margin:7px 0 7px;flex-wrap:wrap;
+}
+.lineChip{
+  font-size:11px;font-weight:600;letter-spacing:.05em;padding:4px 9px;border-radius:5px;
+  color:#fff;
+}
+.legHead .dur{font-family:var(--mono);font-size:11px;color:var(--hush)}
+.legWarn{
+  display:flex;gap:8px;align-items:flex-start;margin:4px 0 8px;padding:8px 11px;
+  background:rgba(255,211,0,.09);border:1px solid rgba(255,211,0,.35);border-radius:10px;
+  font-size:12px;color:var(--signal);
+}
+.interchange{
+  display:flex;align-items:center;gap:8px;margin:2px 0 2px;
+  font-size:12px;color:var(--hush);
+}
+.interchange svg{flex:none}
+#routeEmpty{
+  padding:26px 18px;text-align:center;color:var(--hush);font-size:13.5px;line-height:1.55;
+  border:1px dashed var(--hairline);border-radius:var(--radius);
+}
+
+/* line status */
+.statusRow{
+  border:1px solid var(--hairline);border-radius:12px;margin-bottom:7px;overflow:hidden;
+  background:var(--platform-2);
+}
+.statusRow>button{
+  display:flex;width:100%;align-items:center;gap:10px;padding:10px 12px;text-align:left;
+}
+.statusRow .bar{width:5px;align-self:stretch;border-radius:3px;flex:none}
+.statusRow .ln{font-size:13.5px;flex:1}
+.statusRow .st{font-size:11.5px;font-family:var(--mono);letter-spacing:.02em}
+.st.good{color:var(--ok)}.st.minor{color:var(--signal)}.st.bad{color:var(--danger)}
+.statusRow .why{
+  display:none;padding:0 12px 11px 27px;font-size:12.5px;color:var(--hush);line-height:1.5;
+}
+.statusRow.open .why{display:block}
+#statusNote{font-size:12px;color:var(--hush);line-height:1.55;margin-top:10px}
+#statusList .skeleton{height:40px;border-radius:12px;background:linear-gradient(90deg,var(--platform-2),#232b4a,var(--platform-2));background-size:200% 100%;animation:sk 1.2s infinite;margin-bottom:7px}
+@keyframes sk{to{background-position:-200% 0}}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- mobile: bottom sheet ---------- */
+@media (max-width:880px){
+  main{flex-direction:column}
+  #panel{
+    position:absolute;left:0;right:0;bottom:0;width:auto;max-height:72%;height:46%;
+    border-left:none;border-top:1px solid var(--hairline);
+    border-radius:18px 18px 0 0;transition:height .25s ease;
+    box-shadow:0 -14px 40px rgba(0,0,0,.5);
+  }
+  #panel.tall{height:72%}
+  #sheetHandle{
+    display:block;flex:none;padding:9px 0 5px;cursor:grab;
+  }
+  #sheetHandle::before{
+    content:'';display:block;width:42px;height:4px;border-radius:2px;
+    background:var(--hairline);margin:0 auto;
+  }
+  #zoomCtl{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">
+    <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="24" fill="none" stroke="#E32017" stroke-width="9"/>
+      <rect x="7" y="27" width="50" height="11" rx="2" fill="#2447E6"/>
+    </svg>
+    <div>
+      <h1>Mind the App</h1>
+      <small>Underground &middot; no paywall</small>
+    </div>
+  </div>
+  <div id="livePill"><span class="dot"></span><span id="liveTxt">Connecting&hellip;</span></div>
+</header>
+
+<main>
+  <div id="mapWrap">
+    <canvas id="map"></canvas>
+    <div id="mapHint">Tap a station to set origin, tap another for destination</div>
+    <div id="zoomCtl">
+      <button id="zIn" aria-label="Zoom in">+</button>
+      <button id="zOut" aria-label="Zoom out">&minus;</button>
+    </div>
+  </div>
+
+  <aside id="panel">
+    <div id="sheetHandle" aria-label="Expand panel"></div>
+    <div id="panelScroll">
+
+      <div class="section-label">Journey</div>
+      <div class="stopField" id="fromField">
+        <span class="pin"></span>
+        <input id="fromInput" placeholder="From&hellip;" autocomplete="off" spellcheck="false" enterkeyhint="search">
+        <div class="suggest" id="fromSuggest"></div>
+      </div>
+      <div id="swapRow"><button id="swapBtn" aria-label="Swap origin and destination">&#8645; swap</button></div>
+      <div class="stopField dest" id="toField">
+        <span class="pin"></span>
+        <input id="toInput" placeholder="To&hellip;" autocomplete="off" spellcheck="false" enterkeyhint="search">
+        <div class="suggest" id="toSuggest"></div>
+      </div>
+      <label id="avoidRow"><input type="checkbox" id="avoidChk" checked>Route around live disruptions</label>
+
+      <div id="routeCard">
+        <div id="routeEmpty">Pick two stations — search above or tap the map — and the best route appears here as a carriage strip map.</div>
+        <div id="routeOut"></div>
+      </div>
+
+      <div class="section-label">Line status</div>
+      <div id="statusList"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div id="statusNote"></div>
+
+    </div>
+  </aside>
+</main>
+
+<script>
+const DATA = {"stations":[[1,"Acton Town",51.5028,-0.2801,"3"],[2,"Aldgate",51.5143,-0.0755,"1"],[3,"Aldgate East",51.5154,-0.0726,"1"],[4,"All Saints",51.5107,-0.013,"2"],[5,"Alperton",51.5407,-0.2997,"4"],[6,"Amersham",51.6736,-0.607,"10"],[7,"Angel",51.5322,-0.1058,"1"],[8,"Archway",51.5653,-0.1353,"2.5"],[9,"Arnos Grove",51.6164,-0.1331,"4"],[10,"Arsenal",51.5586,-0.1059,"2"],[11,"Baker Street",51.5226,-0.1571,"1"],[12,"Balham",51.4431,-0.1525,"3"],[13,"Bank",51.5133,-0.0886,"1"],[14,"Barbican",51.5204,-0.0979,"1"],[15,"Barking",51.5396,0.081,"4"],[16,"Barkingside",51.5856,0.0887,"5"],[17,"Barons Court",51.4905,-0.2139,"2"],[306,"Battersea Power Station",51.4796,-0.1503,"1"],[18,"Bayswater",51.5121,-0.1879,"1"],[19,"Beckton",51.5148,0.0613,"3"],[20,"Beckton Park",51.5087,0.055,"3"],[21,"Becontree",51.5403,0.127,"5"],[22,"Belsize Park",51.5504,-0.1642,"2"],[23,"Bermondsey",51.4979,-0.0637,"2"],[24,"Bethnal Green",51.527,-0.0549,"2"],[25,"Blackfriars",51.512,-0.1031,"1"],[26,"Blackhorse Road",51.5867,-0.0417,"3"],[27,"Blackwall",51.5079,-0.0066,"2"],[28,"Bond Street",51.5142,-0.1494,"1"],[29,"Borough",51.5011,-0.0943,"1"],[30,"Boston Manor",51.4956,-0.325,"4"],[31,"Bounds Green",51.6071,-0.1243,"3.5"],[32,"Bow Church",51.5273,-0.0208,"2"],[33,"Bow Road",51.5269,-0.0247,"2"],[34,"Brent Cross",51.5766,-0.2136,"3"],[35,"Brixton",51.4627,-0.1145,"2"],[36,"Bromley-By-Bow",51.5248,-0.0119,"2.5"],[37,"Buckhurst Hill",51.6266,0.0471,"5"],[38,"Burnt Oak",51.6028,-0.2641,"4"],[39,"Caledonian Road",51.5481,-0.1188,"2"],[40,"Camden Town",51.5392,-0.1426,"2"],[41,"Canada Water",51.4982,-0.0502,"2"],[42,"Canary Wharf",51.5051,-0.0209,"2"],[43,"Canning Town",51.5147,0.0082,"3"],[44,"Cannon Street",51.5113,-0.0904,"1"],[45,"Canons Park",51.6078,-0.2947,"5"],[46,"Chalfont & Latimer",51.6679,-0.561,"9"],[47,"Chalk Farm",51.5441,-0.1538,"2"],[48,"Chancery Lane",51.5185,-0.1111,"1"],[49,"Charing Cross",51.508,-0.1247,"1"],[50,"Chesham",51.7052,-0.611,"10"],[51,"Chigwell",51.6177,0.0755,"5"],[52,"Chiswick Park",51.4946,-0.2678,"3"],[53,"Chorleywood",51.6543,-0.5183,"8"],[54,"Clapham Common",51.4618,-0.1384,"2"],[55,"Clapham North",51.4649,-0.1299,"2"],[56,"Clapham South",51.4527,-0.148,"2.5"],[57,"Cockfosters",51.6517,-0.1496,"5"],[58,"Colindale",51.5955,-0.2502,"4"],[59,"Colliers Wood",51.418,-0.1778,"3"],[60,"Covent Garden",51.5129,-0.1243,"1"],[61,"Crossharbour & London Arena",51.4957,-0.0144,"2"],[62,"Croxley",51.647,-0.4412,"7"],[63,"Custom House",51.5095,0.0276,"3"],[64,"Cutty Sark",51.4827,-0.0096,"2.5"],[65,"Cyprus",51.5085,0.064,"3"],[66,"Dagenham East",51.5443,0.1655,"5"],[67,"Dagenham Heathway",51.5417,0.1469,"5"],[68,"Debden",51.6455,0.0838,"6"],[69,"Deptford Bridge",51.474,-0.0216,"2.5"],[70,"Devons Road",51.5223,-0.0173,"2"],[71,"Dollis Hill",51.552,-0.2387,"3"],[72,"Ealing Broadway",51.5152,-0.3017,"3"],[73,"Ealing Common",51.5101,-0.2882,"3"],[74,"Earl's Court",51.492,-0.1973,"1.5"],[76,"East Acton",51.5168,-0.2474,"2"],[77,"East Finchley",51.5874,-0.165,"3"],[78,"East Ham",51.5394,0.0518,"3.5"],[79,"East India",51.5093,-0.0021,"2.5"],[80,"East Putney",51.4586,-0.2112,"2.5"],[75,"Eastcote",51.5765,-0.397,"5"],[81,"Edgware",51.6137,-0.275,"5"],[82,"Edgware Road (B)",51.5199,-0.1679,"1"],[83,"Edgware Road (C)",51.5203,-0.17,"1"],[84,"Elephant & Castle",51.4943,-0.1001,"1.5"],[85,"Elm Park",51.5496,0.1977,"6"],[86,"Elverson Road",51.4693,-0.0174,"2.5"],[87,"Embankment",51.5074,-0.1223,"1"],[88,"Epping",51.6937,0.1139,"6"],[89,"Euston",51.5282,-0.1337,"1"],[90,"Euston Square",51.526,-0.1359,"1"],[91,"Fairlop",51.596,0.0912,"5"],[92,"Farringdon",51.5203,-0.1053,"1"],[93,"Finchley Central",51.6012,-0.1932,"4"],[94,"Finchley Road",51.5472,-0.1803,"2"],[95,"Finsbury Park",51.5642,-0.1065,"2"],[96,"Fulham Broadway",51.4804,-0.195,"2"],[97,"Gallions Reach",51.5096,0.0716,"3"],[98,"Gants Hill",51.5765,0.0663,"4"],[99,"Gloucester Road",51.4945,-0.1829,"1"],[100,"Golders Green",51.5724,-0.1941,"3"],[101,"Goldhawk Road",51.5018,-0.2267,"2"],[102,"Goodge Street",51.5205,-0.1347,"1"],[103,"Grange Hill",51.6132,0.0923,"5"],[104,"Great Portland Street",51.5238,-0.1439,"1"],[107,"Green Park",51.5067,-0.1428,"1"],[105,"Greenford",51.5423,-0.3456,"4"],[106,"Greenwich",51.4781,-0.0149,"2.5"],[108,"Gunnersbury",51.4915,-0.2754,"3"],[109,"Hainault",51.603,0.0933,"5"],[110,"Hammersmith",51.4936,-0.2251,"2"],[111,"Hampstead",51.5568,-0.178,"2.5"],[112,"Hanger Lane",51.5302,-0.2933,"3"],[113,"Harlesden",51.5362,-0.2575,"3"],[114,"Harrow & Wealdston",51.5925,-0.3351,"5"],[115,"Harrow-on-the-Hill",51.5793,-0.3366,"5"],[116,"Hatton Cross",51.4669,-0.4227,"5.5"],[118,"Heathrow Terminal 4",51.4598,-0.4476,"6"],[304,"Heathrow Terminal 5",51.4723,-0.4863,"6"],[117,"Heathrow Terminals 1, 2 & 3",51.4713,-0.4524,"6"],[119,"Hendon Central",51.5829,-0.2259,"3.5"],[120,"Heron Quays",51.5033,-0.0215,"2"],[121,"High Barnet",51.6503,-0.1943,"5"],[122,"High Street Kensington",51.5009,-0.1925,"1"],[123,"Highbury & Islington",51.546,-0.104,"2"],[124,"Highgate",51.5777,-0.1458,"3"],[125,"Hillingdon",51.5538,-0.4499,"6"],[126,"Holborn",51.5174,-0.12,"1"],[127,"Holland Park",51.5075,-0.206,"2"],[128,"Holloway Road",51.5526,-0.1132,"2"],[129,"Hornchurch",51.5539,0.2184,"6"],[130,"Hounslow Central",51.4713,-0.3665,"4"],[131,"Hounslow East",51.4733,-0.3564,"4"],[132,"Hounslow West",51.4734,-0.3855,"5"],[133,"Hyde Park Corner",51.5027,-0.1527,"1"],[134,"Ickenham",51.5619,-0.4421,"6"],[135,"Island Gardens",51.4871,-0.0101,"2"],[136,"Kennington",51.4884,-0.1053,"2"],[137,"Kensal Green",51.5304,-0.225,"2"],[138,"Kensington (Olympia)",51.4983,-0.2106,"2"],[139,"Kentish Town",51.5507,-0.1402,"2"],[140,"Kenton",51.5816,-0.3162,"4"],[141,"Kew Gardens",51.477,-0.285,"3.5"],[142,"Kilburn",51.5471,-0.2047,"2"],[143,"Kilburn Park",51.5351,-0.1939,"2"],[145,"King's Cross St. Pancras",51.5308,-0.1238,"1"],[144,"Kingsbury",51.5846,-0.2786,"4"],[146,"Knightsbridge",51.5015,-0.1607,"1"],[147,"Ladbroke Grove",51.5172,-0.2107,"2"],[148,"Lambeth North",51.4991,-0.1115,"1"],[149,"Lancaster Gate",51.5119,-0.1756,"1"],[150,"Latimer Road",51.5139,-0.2172,"2"],[151,"Leicester Square",51.5113,-0.1281,"1"],[152,"Lewisham",51.4657,-0.0142,"2.5"],[153,"Leyton",51.5566,-0.0053,"3"],[154,"Leytonstone",51.5683,0.0083,"3.5"],[155,"Limehouse",51.5123,-0.0396,"2"],[156,"Liverpool Street",51.5178,-0.0823,"1"],[157,"London Bridge",51.5052,-0.0864,"1"],[158,"Loughton",51.6412,0.0558,"6"],[159,"Maida Vale",51.53,-0.1854,"2"],[160,"Manor House",51.5712,-0.0958,"2.5"],[161,"Mansion House",51.5122,-0.094,"1"],[162,"Marble Arch",51.5136,-0.1586,"1"],[163,"Marylebone",51.5225,-0.1631,"1"],[164,"Mile End",51.5249,-0.0332,"2"],[165,"Mill Hill East",51.6082,-0.2103,"4"],[166,"Monument",51.5108,-0.0863,"1"],[168,"Moor Park",51.6294,-0.432,"6.5"],[167,"Moorgate",51.5186,-0.0886,"1"],[169,"Morden",51.4022,-0.1948,"4"],[170,"Mornington Crescent",51.5342,-0.1387,"2"],[171,"Mudchute",51.4902,-0.0145,"2"],[172,"Neasden",51.5542,-0.2503,"3"],[173,"Newbury Park",51.5756,0.0899,"4"],[305,"Nine Elms",51.4798,-0.1287,"1"],[181,"North Acton",51.5237,-0.2597,"2.5"],[182,"North Ealing",51.5175,-0.2887,"3"],[183,"North Greenwich",51.5005,0.0039,"2.5"],[184,"North Harrow",51.5846,-0.3626,"5"],[185,"North Wembley",51.5621,-0.3034,"4"],[176,"Northfields",51.4995,-0.3142,"3"],[177,"Northolt",51.5483,-0.3687,"5"],[178,"Northwick Park",51.5784,-0.3184,"4"],[179,"Northwood",51.6111,-0.424,"6"],[180,"Northwood Hills",51.6004,-0.4092,"6"],[186,"Notting Hill Gate",51.5094,-0.1967,"1.5"],[187,"Oakwood",51.6476,-0.1318,"5"],[188,"Old Street",51.5263,-0.0873,"1"],[190,"Osterley",51.4813,-0.3522,"4"],[191,"Oval",51.4819,-0.113,"2"],[192,"Oxford Circus",51.515,-0.1415,"1"],[193,"Paddington",51.5154,-0.1755,"1"],[194,"Park Royal",51.527,-0.2841,"3"],[195,"Parsons Green",51.4753,-0.2011,"2"],[196,"Perivale",51.5366,-0.3232,"4"],[197,"Picadilly Circus",51.5098,-0.1342,"1"],[198,"Pimlico",51.4893,-0.1334,"1"],[199,"Pinner",51.5926,-0.3805,"5"],[200,"Plaistow",51.5313,0.0172,"3"],[201,"Poplar",51.5077,-0.0173,"2"],[202,"Preston Road",51.572,-0.2954,"4"],[203,"Prince Regent",51.5093,0.0336,"3"],[204,"Pudding Mill Lane",51.5343,-0.0139,"2.5"],[205,"Putney Bridge",51.4682,-0.2089,"2"],[206,"Queen's Park",51.5341,-0.2047,"2"],[207,"Queensbury",51.5942,-0.2861,"4"],[208,"Queensway",51.5107,-0.1877,"1"],[209,"Ravenscourt Park",51.4942,-0.2359,"2"],[210,"Rayners Lane",51.5753,-0.3714,"5"],[211,"Redbridge",51.5763,0.0454,"4"],[212,"Regent's Park",51.5234,-0.1466,"1"],[213,"Richmond",51.4633,-0.3013,"4"],[214,"Rickmansworth",51.6404,-0.4733,"7"],[215,"Roding Valley",51.6171,0.0439,"5"],[217,"Royal Albert",51.5084,0.0465,"3"],[218,"Royal Oak",51.519,-0.188,"2"],[219,"Royal Victoria",51.5091,0.0181,"3"],[220,"Ruislip",51.5715,-0.4213,"6"],[221,"Ruislip Gardens",51.5606,-0.4103,"5"],[222,"Ruislip Manor",51.5732,-0.4125,"6"],[223,"Russell Square",51.523,-0.1244,"1"],[224,"Seven Sisters",51.5822,-0.0749,"3"],[225,"Shadwell",51.5117,-0.056,"2"],[226,"Shepherd's Bush (C)",51.5046,-0.2187,"2"],[227,"Shepherd's Bush (H)",51.5058,-0.2265,"2"],[229,"Sloane Square",51.4924,-0.1565,"1"],[230,"Snaresbrook",51.5808,0.0216,"4"],[234,"South Ealing",51.5011,-0.3072,"3"],[235,"South Harrow",51.5646,-0.3521,"5"],[236,"South Kensington",51.4941,-0.1738,"1"],[237,"South Kenton",51.5701,-0.3081,"4"],[238,"South Quay",51.5007,-0.0191,"2"],[239,"South Ruislip",51.5569,-0.3988,"5"],[240,"South Wimbledon",51.4154,-0.1919,"3.5"],[241,"South Woodford",51.5917,0.0275,"4"],[231,"Southfields",51.4454,-0.2066,"3"],[232,"Southgate",51.6322,-0.128,"4"],[233,"Southwark",51.501,-0.1052,"1"],[248,"St. James's Park",51.4994,-0.1335,"1"],[249,"St. John's Wood",51.5347,-0.174,"2"],[250,"St. Paul's",51.5146,-0.0973,"1"],[242,"Stamford Brook",51.495,-0.2459,"2"],[243,"Stanmore",51.6194,-0.3028,"5"],[244,"Stepney Green",51.5221,-0.047,"2"],[245,"Stockwell",51.4723,-0.123,"2"],[246,"Stonebridge Park",51.5439,-0.2759,"3"],[247,"Stratford",51.5416,-0.0042,"3"],[251,"Sudbury Hill",51.5569,-0.3366,"4"],[252,"Sudbury Town",51.5507,-0.3156,"4"],[254,"Swiss Cottage",51.5432,-0.1738,"2"],[255,"Temple",51.5111,-0.1141,"1"],[256,"Theydon Bois",51.6717,0.1033,"6"],[257,"Tooting Bec",51.4361,-0.1598,"3"],[258,"Tooting Broadway",51.4275,-0.168,"3"],[259,"Tottenham Court Road",51.5165,-0.131,"1"],[260,"Tottenham Hale",51.5882,-0.0594,"3"],[261,"Totteridge & Whetstone",51.6302,-0.1791,"4"],[262,"Tower Gateway",51.5106,-0.0743,"1"],[263,"Tower Hill",51.5098,-0.0766,"1"],[264,"Tufnell Park",51.5567,-0.1374,"2"],[265,"Turnham Green",51.4951,-0.2547,"2.5"],[266,"Turnpike Lane",51.5904,-0.1028,"3"],[267,"Upminster",51.559,0.251,"6"],[268,"Upminster Bridge",51.5582,0.2343,"6"],[269,"Upney",51.5385,0.1014,"4"],[270,"Upton Park",51.5352,0.0343,"3"],[271,"Uxbridge",51.5463,-0.4786,"6"],[272,"Vauxhall",51.4861,-0.1253,"1.5"],[273,"Victoria",51.4965,-0.1447,"1"],[274,"Walthamstow Central",51.583,-0.0195,"3"],[275,"Wanstead",51.5775,0.0288,"4"],[277,"Warren Street",51.5247,-0.1384,"1"],[278,"Warwick Avenue",51.5235,-0.1835,"2"],[279,"Waterloo",51.5036,-0.1143,"1"],[280,"Watford",51.6573,-0.4177,"8"],[281,"Wembley Central",51.5519,-0.2963,"4"],[282,"Wembley Park",51.5635,-0.2795,"4"],[286,"West Acton",51.518,-0.2809,"3"],[287,"West Brompton",51.4872,-0.1953,"2"],[288,"West Finchley",51.6095,-0.1883,"4"],[289,"West Ham",51.5287,0.0056,"3"],[290,"West Hampstead",51.5469,-0.1906,"2"],[291,"West Harrow",51.5795,-0.3533,"5"],[292,"West India Quay",51.507,-0.0203,"2"],[293,"West Kensington",51.4907,-0.2065,"2"],[294,"West Ruislip",51.5696,-0.4376,"6"],[283,"Westbourne Park",51.521,-0.2011,"2"],[284,"Westferry",51.5097,-0.0265,"2"],[285,"Westminster",51.501,-0.1254,"1"],[296,"White City",51.512,-0.2239,"2"],[295,"Whitechapel",51.5194,-0.0612,"2"],[297,"Willesden Green",51.5492,-0.2215,"2.5"],[298,"Willesden Junction",51.5326,-0.2478,"3"],[299,"Wimbledon",51.4214,-0.2064,"3"],[300,"Wimbledon Park",51.4343,-0.1992,"3"],[303,"Wood Green",51.5975,-0.1097,"3"],[301,"Woodford",51.607,0.0341,"4"],[302,"Woodside Park",51.6179,-0.1856,"4"]],"connections":[[11,163,1,1],[11,212,1,2],[49,87,1,1],[49,197,1,2],[82,163,1,2],[82,193,1,3],[84,148,1,3],[87,279,1,2],[113,246,1,2],[113,298,1,2],[114,140,1,2],[137,206,1,3],[137,298,1,3],[140,237,1,2],[143,159,1,2],[143,206,1,2],[148,279,1,1],[159,278,1,1],[185,237,1,2],[185,281,1,2],[192,197,1,2],[192,212,1,2],[193,278,1,2],[246,281,1,3],[13,156,2,2],[13,250,2,2],[16,91,2,2],[16,173,2,2],[24,156,2,3],[24,164,2,2],[28,162,2,1],[28,192,2,1],[37,158,2,3],[37,301,2,3],[48,126,2,1],[48,250,2,2],[51,103,2,2],[51,215,2,2],[68,158,2,2],[68,256,2,3],[72,286,2,3],[76,181,2,2],[76,296,2,3],[88,256,2,2],[91,109,2,2],[98,173,2,3],[98,211,2,2],[103,109,2,3],[105,177,2,2],[105,196,2,2],[112,181,2,3],[112,196,2,2],[126,259,2,2],[127,186,2,2],[127,226,2,1],[149,162,2,3],[149,208,2,1],[153,154,2,3],[153,247,2,2],[154,230,2,2],[154,275,2,2],[164,247,2,4],[177,239,2,3],[181,286,2,2],[186,208,2,2],[192,259,2,2],[211,275,2,2],[215,301,2,3],[221,239,2,1],[221,294,2,3],[226,296,2,3],[230,241,2,2],[241,301,2,2],[2,156,3,2],[2,263,3,4],[11,83,3,3],[11,104,3,3],[14,92,3,1],[14,167,3,2],[18,186,3,2],[18,193,3,2],[25,161,3,1],[25,255,3,2],[44,161,3,1],[44,166,3,2],[83,193,3,3],[87,255,3,2],[87,285,3,2],[90,104,3,2],[90,145,3,2],[92,145,3,4],[99,122,3,4],[99,236,3,1],[122,186,3,3],[156,167,3,2],[166,263,3,2],[229,236,3,2],[229,273,3,2],[248,273,3,2],[248,285,3,2],[3,263,4,2],[3,295,4,2],[15,78,4,4],[15,269,4,2],[17,110,4,1],[17,293,4,2],[18,186,4,2],[18,193,4,2],[21,67,4,3],[21,269,4,2],[25,161,4,1],[25,255,4,2],[33,36,4,2],[33,164,4,1],[36,289,4,2],[44,161,4,1],[44,166,4,2],[52,1,4,2],[52,265,4,2],[66,67,4,4],[66,85,4,3],[72,73,4,4],[73,1,4,2],[74,99,4,3],[74,122,4,3],[74,138,4,2],[74,287,4,2],[74,293,4,1],[78,270,4,2],[80,205,4,2],[80,231,4,2],[83,193,4,3],[85,129,4,2],[87,255,4,2],[87,285,4,2],[96,195,4,2],[96,287,4,1],[99,236,4,1],[108,141,4,3],[108,265,4,3],[110,209,4,2],[122,186,4,3],[129,268,4,2],[141,213,4,3],[164,244,4,2],[166,263,4,2],[195,205,4,3],[200,270,4,2],[200,289,4,2],[209,242,4,2],[229,236,4,2],[229,273,4,2],[231,300,4,3],[242,265,4,1],[244,295,4,3],[248,273,4,2],[248,285,4,2],[267,268,4,3],[299,300,4,3],[4,70,13,2],[4,201,13,2],[13,225,13,2],[19,97,13,2],[20,65,13,2],[20,217,13,2],[27,79,13,2],[27,201,13,2],[32,70,13,2],[32,204,13,2],[42,120,13,2],[42,292,13,2],[43,79,13,2],[43,219,13,2],[61,171,13,2],[61,238,13,2],[63,203,13,2],[63,219,13,2],[64,106,13,2],[64,135,13,2],[65,97,13,2],[69,86,13,2],[69,106,13,2],[86,152,13,2],[120,238,13,2],[135,171,13,2],[155,225,13,2],[155,284,13,2],[201,284,13,2],[201,292,13,2],[203,217,13,2],[204,247,13,2],[225,262,13,2],[284,292,13,2],[3,156,6,4],[3,295,6,2],[11,83,6,3],[11,104,6,3],[14,92,6,1],[14,167,6,2],[15,78,6,4],[33,36,6,2],[33,164,6,1],[36,289,6,2],[78,270,6,2],[83,193,6,4],[90,104,6,2],[90,145,6,2],[92,145,6,4],[101,110,6,2],[101,227,6,1],[147,150,6,1],[147,283,6,2],[150,227,6,2],[156,167,6,2],[164,244,6,2],[193,218,6,1],[200,270,6,2],[200,289,6,2],[218,283,6,2],[244,295,6,3],[11,28,7,2],[11,249,7,4],[23,41,7,2],[23,157,7,3],[28,107,7,2],[41,42,7,3],[42,183,7,3],[43,183,7,3],[43,289,7,3],[45,207,7,2],[45,243,7,2],[71,172,7,2],[71,297,7,2],[94,254,7,2],[94,290,7,1],[107,285,7,3],[142,290,7,2],[142,297,7,2],[144,207,7,2],[144,282,7,4],[157,233,7,2],[172,282,7,4],[233,279,7,1],[247,289,7,3],[249,254,7,1],[279,285,7,2],[2,156,8,2],[6,46,8,4],[11,94,8,6],[11,104,8,3],[14,92,8,1],[14,167,8,2],[46,50,8,8],[46,53,8,4],[53,214,8,4],[62,168,8,4],[62,280,8,3],[75,210,8,2],[75,222,8,2],[90,104,8,2],[90,145,8,2],[92,145,8,4],[94,282,8,7],[115,178,8,2],[115,184,8,3],[115,291,8,2],[125,134,8,2],[125,271,8,3],[134,220,8,3],[156,167,8,2],[168,179,8,3],[168,214,8,4],[178,202,8,2],[179,180,8,2],[180,199,8,2],[184,199,8,3],[202,282,8,3],[210,291,8,3],[220,222,8,2],[7,145,9,2],[7,188,9,3],[8,124,9,3],[8,264,9,2],[12,56,9,2],[12,257,9,1],[13,157,9,2],[13,167,9,3],[22,47,9,2],[22,111,9,2],[29,84,9,1],[29,157,9,2],[34,100,9,3],[34,119,9,2],[38,58,9,2],[38,81,9,3],[40,47,9,2],[40,89,9,3],[40,139,9,2],[40,170,9,1],[49,87,9,1],[49,151,9,2],[54,55,9,2],[54,56,9,2],[55,245,9,1],[58,119,9,3],[59,240,9,2],[59,258,9,2],[77,93,9,4],[77,124,9,2],[84,136,9,2],[87,279,9,2],[89,145,9,2],[89,170,9,2],[89,277,9,1],[93,165,9,3],[93,288,9,2],[100,111,9,4],[102,259,9,1],[102,277,9,2],[121,261,9,3],[136,191,9,2],[136,279,9,3],[139,264,9,2],[151,259,9,1],[167,188,9,1],[169,240,9,4],[191,245,9,3],[257,258,9,2],[261,302,9,3],[288,302,9,1],[1,73,10,2],[1,234,10,4],[1,265,10,3],[5,194,10,3],[5,252,10,2],[9,31,10,3],[9,232,10,3],[10,95,10,2],[10,128,10,1],[17,74,10,3],[17,110,10,2],[30,176,10,2],[30,190,10,3],[31,303,10,2],[39,128,10,2],[39,145,10,5],[57,187,10,4],[60,126,10,1],[60,151,10,1],[73,182,10,3],[74,99,10,2],[75,210,10,2],[75,222,10,2],[95,160,10,2],[99,236,10,1],[107,133,10,2],[107,197,10,1],[110,265,10,2],[116,117,10,3],[116,118,10,3],[116,132,10,4],[117,118,10,5],[125,134,10,2],[125,271,10,3],[126,223,10,2],[130,131,10,2],[130,132,10,2],[131,190,10,2],[133,146,10,2],[134,220,10,3],[145,223,10,2],[146,236,10,3],[151,197,10,2],[160,266,10,3],[176,234,10,1],[182,194,10,2],[187,232,10,3],[210,235,10,3],[220,222,10,2],[235,251,10,2],[251,252,10,3],[266,303,10,2],[26,260,11,2],[26,274,11,2],[35,245,11,2],[89,145,11,2],[89,277,11,1],[95,123,11,2],[95,224,11,4],[107,192,11,2],[107,273,11,2],[123,145,11,4],[192,277,11,2],[198,272,11,1],[198,273,11,3],[224,260,11,3],[245,272,11,3],[13,279,12,4],[117,304,10,5],[136,305,9,3],[305,306,9,2]],"lines":{"1":{"name":"Bakerloo","color":"#B36305","api":"bakerloo"},"2":{"name":"Central","color":"#E32017","api":"central"},"3":{"name":"Circle","color":"#FFD300","api":"circle"},"4":{"name":"District","color":"#00782A","api":"district"},"6":{"name":"Hammersmith & City","color":"#F3A9BB","api":"hammersmith-city"},"7":{"name":"Jubilee","color":"#A0A5A9","api":"jubilee"},"8":{"name":"Metropolitan","color":"#9B0056","api":"metropolitan"},"9":{"name":"Northern","color":"#2D2D2D","api":"northern"},"10":{"name":"Piccadilly","color":"#003688","api":"piccadilly"},"11":{"name":"Victoria","color":"#0098D4","api":"victoria"},"12":{"name":"Waterloo & City","color":"#95CDBA","api":"waterloo-city"},"13":{"name":"DLR","color":"#00A4A7","api":"dlr"}}};
+
+/* ================= model ================= */
+const stations = new Map();           // id -> {id,name,lat,lon,zone,lines:Set}
+for (const [id,name,lat,lon,zone] of DATA.stations)
+  stations.set(id, {id,name,lat,lon,zone,lines:new Set()});
+const LINES = DATA.lines;             // lineId -> {name,color,api}
+const edges = [];                      // {a,b,line,time}
+for (const [a,b,line,time] of DATA.connections){
+  edges.push({a,b,line:String(line),time});
+  stations.get(a).lines.add(String(line));
+  stations.get(b).lines.add(String(line));
+}
+const stationList = [...stations.values()].sort((x,y)=>x.name.localeCompare(y.name));
+
+/* live status: apiId -> {severity, desc, reason} */
+const lineStatus = new Map();
+let liveOk = null; // null unknown, true, false
+
+/* ================= routing =================
+   Node = station|line. Interchange penalty applied when switching lines
+   at the same station. Live disruption inflates edge weights. */
+const INTERCHANGE_MIN = 4;
+function linePenalty(lineId){
+  if (!document.getElementById('avoidChk').checked) return 1;
+  const api = LINES[lineId].api;
+  const s = lineStatus.get(api);
+  if (!s) return 1;
+  if (s.severity <= 5) return 12;     // suspended / closed / part closure — strongly avoid
+  if (s.severity === 6) return 2.2;   // severe delays
+  if (s.severity <= 9) return 1.35;   // reduced / minor
+  return 1;
+}
+function route(fromId, toId){
+  if (fromId===toId) return null;
+  const adj = new Map(); // "st|line" -> [{to:"st|line", w, ride:{...}|null}]
+  const add=(k,e)=>{ (adj.get(k)||adj.set(k,[]).get(k)).push(e); };
+  for (const e of edges){
+    const w = e.time * linePenalty(e.line);
+    add(e.a+'|'+e.line, {to:e.b+'|'+e.line, w, ride:e});
+    add(e.b+'|'+e.line, {to:e.a+'|'+e.line, w, ride:{...e,a:e.b,b:e.a}});
+  }
+  for (const st of stations.values()){
+    const ls=[...st.lines];
+    for (const l1 of ls) for (const l2 of ls) if (l1!==l2)
+      add(st.id+'|'+l1, {to:st.id+'|'+l2, w:INTERCHANGE_MIN, ride:null});
+  }
+  // Dijkstra with simple binary heap
+  const dist=new Map(), prev=new Map();
+  const heap=[[0,null]]; // [d, key]
+  for (const l of stations.get(fromId).lines){ dist.set(fromId+'|'+l,0); heap.push([0,fromId+'|'+l]); }
+  const up=(i)=>{while(i>0){const p=(i-1)>>1;if(heap[p][0]<=heap[i][0])break;[heap[p],heap[i]]=[heap[i],heap[p]];i=p;}};
+  const down=(i)=>{for(;;){let s=i,l=2*i+1,r=l+1;if(l<heap.length&&heap[l][0]<heap[s][0])s=l;if(r<heap.length&&heap[r][0]<heap[s][0])s=r;if(s===i)break;[heap[s],heap[i]]=[heap[i],heap[s]];i=s;}};
+  heap.shift();heap.forEach((_,i)=>up(i));
+  let best=null;
+  while(heap.length){
+    const [d,key]=heap[0];
+    heap[0]=heap[heap.length-1];heap.pop();down(0);
+    if(key===null||d>(dist.get(key)??Infinity))continue;
+    const [sid]=key.split('|');
+    if(+sid===toId){best=key;break;}
+    for(const e of (adj.get(key)||[])){
+      const nd=d+e.w;
+      if(nd<(dist.get(e.to)??Infinity)){
+        dist.set(e.to,nd);prev.set(e.to,{key,e});
+        heap.push([nd,e.to]);up(heap.length-1);
+      }
+    }
+  }
+  if(!best)return null;
+  // unwind into legs
+  const steps=[];
+  for(let k=best;prev.has(k);k=prev.get(k).key)steps.unshift(prev.get(k).e);
+  const legs=[]; let realMin=0;
+  for(const s of steps){
+    if(!s.ride)continue;
+    realMin+=s.ride.time;
+    const last=legs[legs.length-1];
+    if(last&&last.line===s.ride.line){last.stops.push(s.ride.b);last.min+=s.ride.time;}
+    else legs.push({line:s.ride.line,stops:[s.ride.a,s.ride.b],min:s.ride.time});
+  }
+  realMin += (legs.length-1)*INTERCHANGE_MIN;
+  return {legs,min:Math.round(realMin),changes:legs.length-1};
+}
+
+/* ================= map ================= */
+const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
+let W=0,H=0,DPR=1;
+// project lon/lat -> world units
+const latC=51.51;
+const P=s=>({x:s.lon*Math.cos(latC*Math.PI/180),y:-s.lat});
+let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+for(const s of stations.values()){const p=P(s);minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);}
+let cam={x:(minX+maxX)/2,y:(minY+maxY)/2,scale:1};
+function fit(){
+  const pad=0.9;
+  cam.scale=Math.min(W/(maxX-minX),H/(maxY-minY))*pad;
+  // start centred on zone 1
+  cam.x=-0.12*Math.cos(latC*Math.PI/180);cam.y=-51.512;
+  cam.scale*=3.2;
+}
+const toScr=p=>({x:(p.x-cam.x)*cam.scale+W/2,y:(p.y-cam.y)*cam.scale+H/2});
+const toWorld=(x,y)=>({x:(x-W/2)/cam.scale+cam.x,y:(y-H/2)/cam.scale+cam.y});
+
+// group parallel edges between the same station pair for offset drawing
+const edgeGroups=new Map();
+for(const e of edges){
+  const k=Math.min(e.a,e.b)+'-'+Math.max(e.a,e.b);
+  (edgeGroups.get(k)||edgeGroups.set(k,[]).get(k)).push(e);
+}
+let selFrom=null,selTo=null,activeRoute=null;
+
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,H);
+  const zoomed=cam.scale>15000;
+  const routeLines=new Set();
+  const routeEdgeKeys=new Set();
+  if(activeRoute)for(const leg of activeRoute.legs){
+    routeLines.add(leg.line);
+    for(let i=0;i<leg.stops.length-1;i++){
+      const a=leg.stops[i],b=leg.stops[i+1];
+      routeEdgeKeys.add(Math.min(a,b)+'-'+Math.max(a,b)+'|'+leg.line);
+    }
+  }
+  const dim=!!activeRoute;
+  // edges
+  for(const [k,group] of edgeGroups){
+    const [aId,bId]=k.split('-').map(Number);
+    const A=toScr(P(stations.get(aId))),B=toScr(P(stations.get(bId)));
+    if(Math.max(A.x,B.x)<-40||Math.min(A.x,B.x)>W+40||Math.max(A.y,B.y)<-40||Math.min(A.y,B.y)>H+40)continue;
+    const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy)||1;
+    const nx=-dy/len,ny=dx/len;
+    const gap=Math.min(3.5,Math.max(2.2,cam.scale/9000));
+    group.forEach((e,i)=>{
+      const off=(i-(group.length-1)/2)*gap;
+      const onRoute=routeEdgeKeys.has(k+'|'+e.line);
+      ctx.strokeStyle=LINES[e.line].color;
+      ctx.globalAlpha=dim?(onRoute?1:0.14):0.9;
+      ctx.lineWidth=onRoute?4.5:2.4;
+      ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(A.x+nx*off,A.y+ny*off);
+      ctx.lineTo(B.x+nx*off,B.y+ny*off);
+      ctx.stroke();
+    });
+  }
+  ctx.globalAlpha=1;
+  // stations
+  const onRouteSt=new Set();
+  if(activeRoute)for(const leg of activeRoute.legs)for(const s of leg.stops)onRouteSt.add(s);
+  for(const s of stations.values()){
+    const p=toScr(P(s));
+    if(p.x<-20||p.x>W+20||p.y<-20||p.y>H+20)continue;
+    const inter=s.lines.size>1;
+    const hot=onRouteSt.has(s.id);
+    ctx.globalAlpha=dim&&!hot?0.25:1;
+    if(inter){
+      ctx.fillStyle='#F0EFE9';ctx.beginPath();ctx.arc(p.x,p.y,hot?5:3.6,0,7);ctx.fill();
+      ctx.fillStyle='#0E1220';ctx.beginPath();ctx.arc(p.x,p.y,hot?2.4:1.7,0,7);ctx.fill();
+    }else{
+      ctx.fillStyle='#F0EFE9';ctx.beginPath();ctx.arc(p.x,p.y,hot?3.4:2.2,0,7);ctx.fill();
+    }
+    if((zoomed||hot)&&(cam.scale>26000||inter||hot)){
+      ctx.font='11px '+getComputedStyle(document.body).getPropertyValue('--sans');
+      ctx.fillStyle='rgba(14,18,32,.85)';
+      const w=ctx.measureText(s.name).width;
+      ctx.fillRect(p.x+7,p.y-7,w+8,14);
+      ctx.fillStyle=hot?'#FFFFFF':'rgba(240,239,233,.92)';
+      ctx.fillText(s.name,p.x+11,p.y+3.5);
+    }
+  }
+  ctx.globalAlpha=1;
+  // origin / destination markers
+  const mark=(id,color,label)=>{
+    if(id==null)return;
+    const p=toScr(P(stations.get(id)));
+    ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,9,0,7);ctx.fill();
+    ctx.strokeStyle='#F0EFE9';ctx.lineWidth=2.5;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 10px '+getComputedStyle(document.body).getPropertyValue('--sans');
+    ctx.textAlign='center';ctx.fillText(label,p.x,p.y+3.5);ctx.textAlign='left';
+  };
+  mark(selFrom,'#2447E6','A');mark(selTo,'#E32017','B');
+}
+function resize(){
+  DPR=Math.min(devicePixelRatio||1,2);
+  const r=canvas.parentElement.getBoundingClientRect();
+  W=r.width;H=r.height;
+  canvas.width=W*DPR;canvas.height=H*DPR;
+  draw();
+}
+addEventListener('resize',resize);
+
+/* pan / zoom / tap */
+let ptrs=new Map(),lastPinch=0,moved=false;
+canvas.addEventListener('pointerdown',e=>{
+  canvas.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  moved=false;canvas.classList.add('dragging');
+});
+canvas.addEventListener('pointermove',e=>{
+  if(!ptrs.has(e.pointerId))return;
+  const prev=ptrs.get(e.pointerId);
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===1){
+    const dx=e.clientX-prev.x,dy=e.clientY-prev.y;
+    if(Math.hypot(dx,dy)>2)moved=true;
+    cam.x-=dx/cam.scale;cam.y-=dy/cam.scale;draw();
+  }else if(ptrs.size===2){
+    moved=true;
+    const [a,b]=[...ptrs.values()];
+    const d=Math.hypot(a.x-b.x,a.y-b.y);
+    if(lastPinch){
+      const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;
+      zoomAt(cx,cy,d/lastPinch);
+    }
+    lastPinch=d;
+  }
+});
+canvas.addEventListener('pointerup',e=>{
+  const r=canvas.getBoundingClientRect();
+  if(!moved&&ptrs.size===1)tap(e.clientX-r.left,e.clientY-r.top);
+  ptrs.delete(e.pointerId);lastPinch=0;canvas.classList.remove('dragging');
+});
+canvas.addEventListener('pointercancel',e=>{ptrs.delete(e.pointerId);lastPinch=0;});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=canvas.getBoundingClientRect();
+  zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-e.deltaY*0.0016));
+},{passive:false});
+function zoomAt(sx,sy,f){
+  f=Math.max(0.2,Math.min(5,f));
+  const before=toWorld(sx,sy);
+  cam.scale=Math.max(2000,Math.min(260000,cam.scale*f));
+  const after=toWorld(sx,sy);
+  cam.x+=before.x-after.x;cam.y+=before.y-after.y;
+  draw();
+}
+document.getElementById('zIn').onclick=()=>zoomAt(W/2,H/2,1.45);
+document.getElementById('zOut').onclick=()=>zoomAt(W/2,H/2,1/1.45);
+
+function tap(x,y){
+  let best=null,bd=1e9;
+  for(const s of stations.values()){
+    const p=toScr(P(s));
+    const d=Math.hypot(p.x-x,p.y-y);
+    if(d<bd){bd=d;best=s;}
+  }
+  if(bd>22)return;
+  if(selFrom==null||(selFrom!=null&&selTo!=null)){
+    selFrom=best.id;selTo=null;
+    document.getElementById('fromInput').value=best.name;
+    document.getElementById('toInput').value='';
+  }else{
+    selTo=best.id;
+    document.getElementById('toInput').value=best.name;
+  }
+  hint.style.opacity=0;
+  update();
+}
+
+/* ================= search ================= */
+function wire(inputId,sugId,setter){
+  const inp=document.getElementById(inputId),sug=document.getElementById(sugId);
+  let idx=-1,items=[];
+  function render(q){
+    q=q.trim().toLowerCase();
+    items=q?stationList.filter(s=>s.name.toLowerCase().includes(q)).slice(0,9):[];
+    idx=-1;
+    sug.innerHTML='';
+    for(const s of items){
+      const b=document.createElement('button');
+      const dots=[...s.lines].map(l=>`<i style="background:${LINES[l].color}"></i>`).join('');
+      b.innerHTML=`<span class="lineDots">${dots}</span><span>${s.name}</span><span class="zone">Z${s.zone}</span>`;
+      b.onclick=()=>{pick(s);};
+      sug.appendChild(b);
+    }
+    sug.classList.toggle('open',items.length>0);
+  }
+  function pick(s){
+    inp.value=s.name;sug.classList.remove('open');
+    setter(s.id);hint.style.opacity=0;update();
+    const p=P(s);cam.x=p.x;cam.y=p.y;cam.scale=Math.max(cam.scale,26000);draw();
+  }
+  inp.addEventListener('input',()=>render(inp.value));
+  inp.addEventListener('focus',()=>{inp.select();render(inp.value);});
+  inp.addEventListener('blur',()=>setTimeout(()=>sug.classList.remove('open'),160));
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'){idx=Math.min(idx+1,items.length-1);}
+    else if(e.key==='ArrowUp'){idx=Math.max(idx-1,0);}
+    else if(e.key==='Enter'){if(items[Math.max(idx,0)])pick(items[Math.max(idx,0)]);return;}
+    else return;
+    e.preventDefault();
+    [...sug.children].forEach((c,i)=>c.classList.toggle('active',i===idx));
+  });
+}
+wire('fromInput','fromSuggest',id=>{selFrom=id;});
+wire('toInput','toSuggest',id=>{selTo=id;});
+document.getElementById('swapBtn').onclick=()=>{
+  [selFrom,selTo]=[selTo,selFrom];
+  const f=document.getElementById('fromInput'),t=document.getElementById('toInput');
+  [f.value,t.value]=[t.value,f.value];
+  update();
+};
+document.getElementById('avoidChk').onchange=update;
+
+/* ================= route rendering ================= */
+const routeOut=document.getElementById('routeOut'),routeEmpty=document.getElementById('routeEmpty');
+function sevClass(sev){return sev>=10?'good':sev>=7?'minor':'bad';}
+function update(){
+  activeRoute=(selFrom!=null&&selTo!=null)?route(selFrom,selTo):null;
+  draw();
+  if(!activeRoute){routeOut.innerHTML='';routeEmpty.style.display='block';
+    if(selFrom!=null&&selTo!=null)routeEmpty.textContent='No route found between those stations.';
+    return;}
+  routeEmpty.style.display='none';
+  const r=activeRoute;
+  let html=`<div class="summary">
+    <span class="big">${r.min}<small>min</small></span>
+    <span class="meta">${r.changes===0?'direct — no changes':r.changes+' change'+(r.changes>1?'s':'')}</span>
+    <span class="meta">&middot; ${r.legs.reduce((n,l)=>n+l.stops.length-1,0)} stops</span>
+  </div><div class="strip">`;
+  r.legs.forEach((leg,li)=>{
+    const L=LINES[leg.line];
+    const s=lineStatus.get(L.api);
+    const warn=s&&s.severity<10?s:null;
+    html+=`<div class="leg"><span class="spine" style="background:${L.color}"></span>`;
+    html+=`<div class="node end"><span class="tick"></span><div class="nm">${stations.get(leg.stops[0]).name}</div>`;
+    if(li===0)html+=`<div class="sub">start here</div>`;
+    html+=`</div>`;
+    html+=`<div class="legHead"><span class="lineChip" style="background:${L.color};${leg.line==='3'?'color:#5a4a00;':''}${leg.line==='6'||leg.line==='12'?'color:#333;':''}">${L.name}</span><span class="dur">${leg.stops.length-1} stops &middot; ~${Math.round(leg.min)} min</span></div>`;
+    if(warn)html+=`<div class="legWarn">&#9888; ${warn.desc}${warn.reason?' — '+warn.reason:''}</div>`;
+    const mids=leg.stops.slice(1,-1);
+    if(mids.length>0){
+      if(mids.length<=4){
+        for(const m of mids)html+=`<div class="node mid"><span class="tick"></span><div class="nm" style="font-size:12.5px;color:var(--hush)">${stations.get(m).name}</div></div>`;
+      }else{
+        html+=`<div class="midFold" data-leg="${li}">&#8942; ${mids.length} stops — show</div>
+        <div class="mids" data-mids="${li}" style="display:none">`+
+        mids.map(m=>`<div class="node mid"><span class="tick"></span><div class="nm" style="font-size:12.5px;color:var(--hush)">${stations.get(m).name}</div></div>`).join('')+`</div>`;
+      }
+    }
+    const endName=stations.get(leg.stops[leg.stops.length-1]).name;
+    if(li<r.legs.length-1){
+      const next=LINES[r.legs[li+1].line];
+      html+=`<div class="node end"><span class="tick"></span><div class="nm">${endName}</div>
+        <div class="interchange"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M13 5l5 5-5 5M18 10H7a4 4 0 000 8h2"/></svg>change to ${next.name} &middot; allow ${INTERCHANGE_MIN} min</div></div>`;
+    }else{
+      html+=`<div class="node end"><span class="tick"></span><div class="nm">${endName}</div><div class="sub">arrive</div></div>`;
+    }
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  routeOut.innerHTML=html;
+  routeOut.querySelectorAll('.midFold').forEach(el=>{
+    el.onclick=()=>{
+      const box=routeOut.querySelector(`[data-mids="${el.dataset.leg}"]`);
+      const open=box.style.display!=='none';
+      box.style.display=open?'none':'block';
+      el.innerHTML=open?`&#8942; ${box.children.length} stops — show`:`&#8942; hide stops`;
+    };
+  });
+}
+
+/* ================= live TfL status ================= */
+const pill=document.getElementById('livePill'),liveTxt=document.getElementById('liveTxt');
+const statusList=document.getElementById('statusList'),statusNote=document.getElementById('statusNote');
+async function refreshStatus(){
+  try{
+    const res=await fetch('https://api.tfl.gov.uk/Line/Mode/tube,dlr/Status',{signal:AbortSignal.timeout(9000)});
+    if(!res.ok)throw new Error(res.status);
+    const arr=await res.json();
+    lineStatus.clear();
+    for(const l of arr){
+      const st=(l.lineStatuses||[]).slice().sort((a,b)=>a.statusSeverity-b.statusSeverity)[0];
+      if(!st)continue;
+      lineStatus.set(l.id,{severity:st.statusSeverity,desc:st.statusSeverityDescription,reason:st.reason||''});
+    }
+    liveOk=true;
+    const issues=[...lineStatus.values()].filter(s=>s.severity<10).length;
+    pill.className=issues?'warn':'on';pill.classList.add(issues?'warn':'on');
+    liveTxt.textContent=issues?issues+' line'+(issues>1?'s':'')+' disrupted':'All lines good';
+    renderStatus();update();
+  }catch(err){
+    if(liveOk)return;              // keep last good data on transient failure
+    liveOk=false;
+    pill.className='';liveTxt.textContent='Offline data';
+    statusList.innerHTML='';
+    statusNote.innerHTML='Live status couldn&rsquo;t be fetched here. In the Claude preview, outside network calls are blocked &mdash; host this file (e.g. GitHub Pages) and it pulls live TfL line status automatically, no API key needed. Routes currently use timetable data only.';
+    renderStatus(true);
+  }
+}
+function renderStatus(offline){
+  const order=Object.entries(LINES).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+  statusList.innerHTML='';
+  for(const [id,L] of order){
+    const s=lineStatus.get(L.api);
+    const row=document.createElement('div');row.className='statusRow';
+    const sev=s?s.severity:null;
+    const cls=s?sevClass(sev):'';
+    const label=s?s.desc:(offline?'—':'…');
+    row.innerHTML=`<button>
+      <span class="bar" style="background:${L.color}"></span>
+      <span class="ln">${L.name}</span>
+      <span class="st ${cls}">${label}</span>
+    </button>${s&&s.reason?`<div class="why">${s.reason}</div>`:''}`;
+    if(s&&s.reason)row.querySelector('button').onclick=()=>row.classList.toggle('open');
+    statusList.appendChild(row);
+  }
+  if(liveOk)statusNote.textContent='Live from TfL — refreshes every minute. Disrupted lines are penalised or avoided when routing.';
+}
+
+/* ================= bottom sheet ================= */
+const panel=document.getElementById('panel');
+document.getElementById('sheetHandle').onclick=()=>{panel.classList.toggle('tall');setTimeout(resize,270);};
+['fromInput','toInput'].forEach(id=>document.getElementById(id).addEventListener('focus',()=>{
+  if(matchMedia('(max-width:880px)').matches)panel.classList.add('tall');
+}));
+
+/* ================= boot ================= */
+const hint=document.getElementById('mapHint');
+resize();fit();resize();
+setTimeout(()=>hint.style.opacity=0,7000);
+refreshStatus();
+setInterval(refreshStatus,60000);
+</script>
+</body>
+</html>
